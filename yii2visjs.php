@@ -49,6 +49,8 @@ class yii2visjs extends elWidget
     * @todo add the event class and write docs
     **/
     public $dataSet = [];
+    public $nodes = [];
+    public $edges = [];
 
     /**
      * Will hold an url to json formatted events!
@@ -126,15 +128,19 @@ class yii2visjs extends elWidget
         $js[] = "var container$id = document.getElementById('$id');";
 
         //lets check if we have an event for the calendar...
-        if(count($this->dataSet)>0)
+        if(count($this->nodes)>0)
         {
-            $jsonDataSet = Json::encode($this->dataSet);
-            $js[] = "var data$id = new vis.DataSet($jsonDataSet);";
+            $dataSet = [
+                'nodes' => new JsExpression('new vis.DataSet(' . Json::encode($this->nodes) . ')'),
+                'edges' => new JsExpression('new vis.DataSet(' . Json::encode($this->edges) . ')'),
+            ];
+            $jsonDataSet = Json::encode($dataSet);
+            $js[] = "var data$id = $jsonDataSet;";
         }
 
         $visualization = $this->visualization;
         
-        $js[] = "var timeline$id = new vis.$visualization(container$id, data$id, $cleanOptions);";
+        $js[] = "document.timeline$id = new vis.$visualization(container$id, data$id, $cleanOptions);";
 
 
         $view->registerJs(implode("\n", $js),View::POS_READY);
@@ -145,6 +151,9 @@ class yii2visjs extends elWidget
      */
     protected function getClientOptions()
     {
+        if (empty($this->clientOptions)) {
+            return '{}';
+        }
         return Json::encode($this->clientOptions);
     }
 
