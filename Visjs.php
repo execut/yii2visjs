@@ -10,6 +10,7 @@
 
 namespace yii2visjs;
 
+use execut\yii\jui\Widget;
 use Yii;
 use yii\base\Model;
 use yii\web\View;
@@ -18,7 +19,7 @@ use yii\helpers\Json;
 use yii\web\JsExpression;
 use yii\base\Widget as elWidget;
 
-class yii2visjs extends elWidget
+class Visjs extends Widget
 {
 
     /**
@@ -34,6 +35,10 @@ class yii2visjs extends elWidget
      * @var array clientOptions the HTML attributes for the widget container tag.
      */
     public $clientOptions = [
+        'isRenderAfterLoad' => true,
+    ];
+
+    public $visjsClientOptions = [
     ];
 
     /**
@@ -49,15 +54,13 @@ class yii2visjs extends elWidget
     * @todo add the event class and write docs
     **/
     public $dataSet = [];
-    public $nodes = [];
-    public $edges = [];
 
     /**
      * Will hold an url to json formatted events!
      * @var url to json service
      */
     public $ajaxEvents = NULL;
-    
+
     /**
      * the text that will be displayed on changing the pages
      * @var string
@@ -98,12 +101,12 @@ class yii2visjs extends elWidget
         if (!isset($this->options['class'])) {
             $this->options['class'] = 'visjs';
         }
-        
-        echo Html::beginTag('div', $this->options) . "\n";
+
+        echo $this->_beginContainer();
             echo Html::beginTag('div',['class'=>'fc-loading','style' => 'display:none;']);
                 echo Html::encode($this->loading);
             echo Html::endTag('div')."\n";
-        echo Html::endTag('div')."\n";
+        echo $this->_endContainer();
         $this->registerPlugin();
     }
 
@@ -111,39 +114,38 @@ class yii2visjs extends elWidget
     * Registers the FullCalendar javascript assets and builds the requiered js  for the widget and the related events
     */
     protected function registerPlugin()
-    {        
-        $id = $this->options['id'];
-        $view = $this->getView();
-
-        /** @var \yii\web\AssetBundle $assetClass */
-        $assets = CoreAsset::register($view);
-
-        $js = array();
-
+    {
         if($this->ajaxEvents != NULL){
-            $this->clientOptions['events'] = $this->ajaxEvents;
+            $this->visjsClientOptions['events'] = $this->ajaxEvents;
         }
 
-        $cleanOptions = $this->getClientOptions();
-        $js[] = "var container$id = document.getElementById('$id');";
-
         //lets check if we have an event for the calendar...
-        if(count($this->nodes)>0)
+        if(count($this->dataSet)>0)
         {
-            $dataSet = [
-                'nodes' => new JsExpression('new vis.DataSet(' . Json::encode($this->nodes) . ')'),
-                'edges' => new JsExpression('new vis.DataSet(' . Json::encode($this->edges) . ')'),
-            ];
-            $jsonDataSet = Json::encode($dataSet);
-            $js[] = "var data$id = $jsonDataSet;";
+            if ($this->visualization === 'Network') {
+                $dataSet = [];
+                if (!empty($this->dataSet['nodes'])) {
+                    $dataSet['nodes'] = $this->createDataSet($this->dataSet['nodes']);
+                }
+
+                if (!empty($this->dataSet['edges'])) {
+                    $dataSet['edges'] = $this->createDataSet($this->dataSet['edges']);
+                }
+            } else {
+                $dataSet = $this->createDataSet($this->dataSet);
+            }
+        } else {
+            $dataSet = [];
         }
 
         $visualization = $this->visualization;
-        
-        $js[] = "document.timeline$id = new vis.$visualization(container$id, data$id, $cleanOptions);";
 
-
-        $view->registerJs(implode("\n", $js),View::POS_READY);
+        $this->clientOptions = array_merge($this->clientOptions, [
+            'visualization' => $this->visualization,
+            'items' => $dataSet,
+            'visjsOptions' => $this->visjsClientOptions,
+        ]);
+        $this->registerWidget();
     }
 
     /**
@@ -155,6 +157,13 @@ class yii2visjs extends elWidget
             return '{}';
         }
         return Json::encode($this->clientOptions);
+    }
+
+    protected function createDataSet($data)
+    {
+        $dataSet = new JsExpression('new vis.DataSet(' . Json::encode($data) . ')');
+
+        return $dataSet;
     }
 
 }
